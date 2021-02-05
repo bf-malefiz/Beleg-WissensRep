@@ -1,0 +1,6 @@
+/.venv
+/.vscode
+/__pycache__
+/intro-data-analysis-with-pandas.ipynb
+/logistische_regression.ipynb
+/titanic-train.csv

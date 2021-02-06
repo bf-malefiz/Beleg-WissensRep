@@ -1,16 +1,22 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 
-def sigmoid(x):
+def sigmoid(X):
     """ Applies the logistic function to x, element-wise. """
-    return 1 / (1 + np.exp(-x))
+    return 1 / (1 + np.exp(-X))
 
 
-def x_strich(x):
-    xt = numpy.zeros((x.shape[0], x.shape[1] + 1))
-    xt[:, :1] = 1
-    xt[:, 1:] = x
-    return xt
+def x_strich(X):
+
+    return np.column_stack((np.ones(len(X)), X))
+
+
+def feature_scaling(X):
+    x_mean = np.mean(X)
+    x_std = np.std(X)
+
+    return (X - x_mean) / x_std
 
 
 def logistic_hypothesis(theta):
@@ -21,15 +27,41 @@ def logistic_hypothesis(theta):
     Returns:
         lambda that models a logistc function based on thetas and x
     """
-    return lambda X: sigmoid(x_strich(X).dot(theta))
+    return lambda X: sigmoid(np.dot(x_strich(X), theta))
 
 
-def L2_regularization_cost(X, theta, lambd):
-    print(X.shape)
-    return np.sum(np.square(theta)) * (lambd / (2 * X.shape[0]))
+# def regulated_cost(X, y, theta, lambda_reg):
+#
+#    return cross_entropy(X, y)(theta) + L2_regularization_cost(X, theta, lambda_reg)
 
 
-def cross_entropy_costs(h, X, y):
+# def cross_entropy(X, y):
+#    """
+#    Computes the cross-entropy for a single logit value and a given target class.
+#    Parameters
+#    ----------
+#    X : float64 or float32
+#    The logit
+#    y : int
+#    The target class
+#    Returns
+#    -------
+#    floatX
+#    The cross entropy value (negative log-likelihood)
+#    """
+#
+#    def cost(theta):
+#        z = x_strich(X).dot(theta)
+#        mu = np.max([np.zeros(X.shape[0]), -z], axis=0)
+#        r1 = y * (mu + np.log(np.exp(-mu) + np.exp(-z - mu)))
+#        mu = np.max([np.zeros(X.shape[0]), z], axis=0)
+#        r2 = (1 - y) * (mu + np.log(np.exp(-mu) + np.exp(z - mu)))
+#        return r1 + r2
+#
+#    return cost
+
+
+def cross_entropy(X, y):
     """Implements cross-entropy as a function costs(theta) on given traning data
     Args:
         h: the hypothesis as function
@@ -38,14 +70,12 @@ def cross_entropy_costs(h, X, y):
     Returns:
         lambda costs(theta) that models the cross-entropy for each x^i
     """
-    return lambda theta: -y * np.log(h(theta)(X)) - (1 - y) * np.log(1 - h(theta)(X))
+    return lambda theta: -y * np.log(logistic_hypothesis(theta)(X) + 1e-9) - (
+        1 - y
+    ) * np.log(1 - logistic_hypothesis(theta)(X) + 1e-9)
 
 
-def regulated_cost(h, X, y, theta, lambd):
-    return cross_entropy_costs(h, X, y) + L2_regularization_cost(X, theta, lambd)
-
-
-def compute_new_theta(X, y, theta, learning_rate, hypothesis, lambda_reg=0.1):
+def compute_new_theta(X, y, theta, learning_rate, lambda_reg):
     """Updates learnable parameters theta
     The update is done by calculating the partial derivities of
     the cost function including the linear hypothesis. The
@@ -60,25 +90,20 @@ def compute_new_theta(X, y, theta, learning_rate, hypothesis, lambda_reg=0.1):
     Returns:
         theta: Updated theta_0
     """
-    h = hypothesis(theta)(X)
-    return theta - learning_rate * (1 / X.shape[0]) * np.sum((h - y).dot(x_strich(X)))
+
+    thetas = np.zeros(len(theta))
+    thetas = theta * (1 - learning_rate * (lambda_reg / len(X))) - (
+        learning_rate / len(X)
+    ) * np.sum((logistic_hypothesis(theta)(X) - y) * x_strich(X).T, axis=1)
+
+    return thetas
 
 
-def mean_cross_entropy_costs(X, y, hypothesis, cost_func, lambda_reg=0.1):
-    """Implements mean cross-entropy as a function J(theta) on given traning
-    data
-    Args:
-        X: features as 2D array with shape (m_examples, n_features)
-        y: ground truth labels for given features with shape (m_examples)
-        hypothesis: the hypothesis as function
-        cost_func: cost function
-    Returns:
-        lambda J(theta) that models the mean cross-entropy
-    """
-    return lambda theta: np.mean(cost_func(hypothesis, X, y)(theta))
+def L2_regularization_cost(X, theta, lambda_reg):
+    return np.sum(theta ** 2) * (lambda_reg / (2 * len(X)))
 
 
-def gradient_descent(X, y, theta, learning_rate, num_iters, lambda_reg=0.1):
+def gradient_descent(X, y, theta, learning_rate, num_iters, lambda_reg):
     """Minimize theta values of a logistic model based on cross-entropy cost function
     Args:
         X: 2D numpy array of x values
@@ -91,15 +116,51 @@ def gradient_descent(X, y, theta, learning_rate, num_iters, lambda_reg=0.1):
         history_cost: cost after each iteration
         history_theta: Updated theta values after each iteration
     """
-    thetas = np.zeros((num_iters, len(theta)))
+    thetas = [theta]
     cost = np.zeros(num_iters)
-    J = mean_cross_entropy_costs(X, y, logistic_hypothesis, cross_entropy_costs)
-    tmp = theta
-    for i in range(num_iters):
-        thetas[i] = tmp
-        tmp = compute_new_theta(X, y, thetas[i], learning_rate, logistic_hypothesis)
+
+    J = mean_cross_entropy_costs(X, y, cross_entropy, lambda_reg)
+    cost[0] = J(thetas[0])
+    for i in range(1, num_iters):
+        thetas.append(compute_new_theta(X, y, thetas[i - 1], learning_rate, lambda_reg))
         cost[i] = J(thetas[i])
-        if i % 250 == 0:
-            print(f"{i} Iteration -- {thetas[i]}")
-            print(f"Cost: {cost[i]}\n")
     return cost, thetas
+
+
+def mean_cross_entropy_costs(X, y, cost_func, lambda_reg):
+    """Implements mean cross-entropy as a function J(theta) on given traning
+    data
+    Args:
+        X: features as 2D array with shape (m_examples, n_features)
+        y: ground truth labels for given features with shape (m_examples)
+        hypothesis: the hypothesis as function
+        cost_func: cost function
+    Returns:
+        lambda J(theta) that models the mean cross-entropy
+    """
+    return lambda theta: np.mean(cost_func(X, y)(theta)) + L2_regularization_cost(
+        X, theta, lambda_reg
+    )
+
+
+def plot_progress(fig, costs, learning_rate, lambda_reg):
+    """Plots the costs over the iterations
+
+    Args:
+        costs: history of costs
+    """
+    plt.subplot(211)
+    plt.plot(
+        np.arange(len(costs)),
+        costs,
+        alpha=0.8,
+        label="LR: " + str(learning_rate) + " __ Lambda: " + str(lambda_reg),
+    )
+    plt.ylim(0, 1)
+    plt.legend(
+        bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+        loc="lower left",
+        ncol=4,
+        mode="expand",
+        borderaxespad=0.0,
+    )

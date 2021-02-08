@@ -13,8 +13,8 @@ def x_strich(X):
 
 
 def feature_scaling(X):
-    x_mean = np.mean(X)
-    x_std = np.std(X)
+    x_mean = np.mean(X, axis=0)
+    x_std = np.std(X, axis=0)
 
     return (X - x_mean) / x_std
 
@@ -119,15 +119,15 @@ def gradient_descent(X, y, theta, learning_rate, num_iters, lambda_reg):
     thetas = [theta]
     cost = np.zeros(num_iters)
 
-    J = mean_cross_entropy_costs(X, y, cross_entropy, lambda_reg)
-    cost[0] = J(thetas[0])
+    # J = mean_cross_entropy_costs(X, y, cross_entropy, lambda_reg)
+    # cost[0] = J(thetas[0])
     for i in range(1, num_iters):
         thetas.append(compute_new_theta(X, y, thetas[i - 1], learning_rate, lambda_reg))
-        cost[i] = J(thetas[i])
+    #    cost[i] = J(thetas[i])
     return cost, thetas
 
 
-def mean_cross_entropy_costs(X, y, cost_func, lambda_reg):
+def mean_cross_entropy_costs(X, y, lambda_reg=0.0):
     """Implements mean cross-entropy as a function J(theta) on given traning
     data
     Args:
@@ -138,7 +138,7 @@ def mean_cross_entropy_costs(X, y, cost_func, lambda_reg):
     Returns:
         lambda J(theta) that models the mean cross-entropy
     """
-    return lambda theta: np.mean(cost_func(X, y)(theta)) + L2_regularization_cost(
+    return lambda theta: np.mean(cross_entropy(X, y)(theta)) + L2_regularization_cost(
         X, theta, lambda_reg
     )
 
@@ -154,7 +154,12 @@ def plot_progress(fig, costs, learning_rate, lambda_reg):
         np.arange(len(costs)),
         costs,
         alpha=0.8,
-        label="LR: " + str(learning_rate) + " __ Lambda: " + str(lambda_reg),
+        label="LR: "
+        + str(learning_rate)
+        + " __ Lambda: "
+        + str(lambda_reg)
+        + " final cost: "
+        + str(round(costs[-1], 4)),
     )
     plt.ylim(0, 1)
     plt.legend(

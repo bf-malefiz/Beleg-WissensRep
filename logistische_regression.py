@@ -16,7 +16,15 @@ def feature_scaling(X):
     x_mean = np.mean(X, axis=0)
     x_std = np.std(X, axis=0)
 
-    return (X - x_mean) / x_std
+    return (X - x_mean) / x_std, x_mean, x_std
+
+
+def rescale_model(thetas, mean, std):
+    thetas_rescaled = np.zeros(thetas.shape[0])
+    for count, value in enumerate(thetas):
+        if count == 0:
+            thetas_rescaled[0] = value + thetas[1] * (mean / std)
+    return thetas_rescaled
 
 
 def logistic_hypothesis(theta):
@@ -119,11 +127,11 @@ def gradient_descent(X, y, theta, learning_rate, num_iters, lambda_reg):
     thetas = [theta]
     cost = np.zeros(num_iters)
 
-    # J = mean_cross_entropy_costs(X, y, cross_entropy, lambda_reg)
-    # cost[0] = J(thetas[0])
+    J = mean_cross_entropy_costs(X, y, lambda_reg)
+    cost[0] = J(thetas[0])
     for i in range(1, num_iters):
         thetas.append(compute_new_theta(X, y, thetas[i - 1], learning_rate, lambda_reg))
-    #    cost[i] = J(thetas[i])
+        cost[i] = J(thetas[i])
     return cost, thetas
 
 
@@ -149,22 +157,17 @@ def plot_progress(fig, costs, learning_rate, lambda_reg):
     Args:
         costs: history of costs
     """
-    plt.subplot(211)
-    plt.plot(
+    ax = fig.add_subplot(111)
+    ax.plot(
         np.arange(len(costs)),
         costs,
         alpha=0.8,
-        label="LR: "
-        + str(learning_rate)
-        + " __ Lambda: "
-        + str(lambda_reg)
-        + " final cost: "
-        + str(round(costs[-1], 4)),
+        label="LR: " + str(learning_rate) + " __ Lambda: " + str(lambda_reg),
     )
-    plt.ylim(0, 1)
-    plt.legend(
+
+    ax.legend(
         bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
-        loc="lower left",
+        loc="best",
         ncol=4,
         mode="expand",
         borderaxespad=0.0,
